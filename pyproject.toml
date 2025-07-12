@@ -1,0 +1,13 @@
+[project]
+dynamic = ["version"]
+name = "settingslib"
+dependencies = [
+    "tomlkit==0.13.3"
+]
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [{name = "Nicolás Miranda Colivoro", email = "nmcolivoro@outlook.cl"}]
+keywords = ["settings", "config", "configuration", "toml"]
+classifiers = [
+    "Development Status :: 4 - Beta"
+]
+license = { file = "LICENSE" }
