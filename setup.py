@@ -1,4 +1,4 @@
-from setuptools import setup
+from setuptools import setup, find_packages
 
 setup(
     name="settingslib",
@@ -8,5 +8,6 @@ setup(
     author_email="nmcolivoro@outlook.cl",
     install_requires=[
         "tomlkit==0.13.3"
-    ]
+    ],
+    packages=find_packages()
 )
