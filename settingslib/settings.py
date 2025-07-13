@@ -225,6 +225,66 @@ class SettingsManager(abc.ABC):
         except KeyError:
             return default
     
+    def items(self, *, deep: bool = False) -> Iterator[tuple[str, Setting]]:
+        """
+        Iterates over the settings.
+
+        Args:
+            deep (bool, optional): Whether to include nested keys. Defaults to False.
+
+        Yields:
+            tuple[str, Setting]: A tuple with the key of the setting and the `Setting` object.
+        """
+        for key, setting in self._settings.items():
+            yield (key, setting)
+            
+            if deep and isinstance(setting, NestedSettings):
+                for k, s in setting.items(deep=True):
+                    yield ((key + "." + k), s)
+
+    def keys(self, *, deep: bool = False) -> Iterator[str]:
+        """
+        Iterates over the settings keys.
+
+        Args:
+            deep (bool, optional): Whether to include nested keys. Defaults to False.
+
+        Yields:
+            str: A setting key.
+        """
+        for k, _ in self.items(deep=deep):
+            yield k
+            
+    def values(self, *, deep: bool = False) -> Iterator[Setting]:
+        """
+        Iterates over the settings values.
+
+        Args:
+            deep (bool, optional): Whether to include nested keys. Defaults to False.
+
+        Yields:
+            Setting: A Setting object.
+        """
+        for _, s in self.items(deep=deep):
+            yield s
+            
+    def setdefault(self, key: str, default: _T, comment: str = "") -> Setting[_T]:
+        """
+        Returns the setting with the key, if exists. If not, creates a new setting
+        with the given key and returns it.
+
+        Args:
+            key (str): The setting key.
+            default (_T): The default value if the key doesn't exists.
+            comment (str, optional): The comment for the setting if doesn't exists. Defaults to "".
+
+        Returns:
+            Setting[_T]: The new setting.
+        """
+        if self.has(key):
+            return self[key]
+        return self.new(key, default, comment=comment)
+    
     def has(self, key: str) -> bool:
         """Check if setting `key` is in the settings."""
         if not _is_nested_key(key):
@@ -266,9 +326,6 @@ class SettingsManager(abc.ABC):
                                 be careful at doing changes.
         """
         return self._settings
-        
-    def iter(self) -> Iterator[tuple[str, Setting]]:
-        return self._settings.items()
     
     def reset(self) -> Self:
         """Sets all the settings to their default value."""
@@ -583,7 +640,7 @@ class Settings(SettingsManager):
             
             table = toml.table()
             
-            for key, setting in s.iter():
+            for key, setting in s.items():
                 if setting.comment:
                     add_comment(table, setting)
 
@@ -594,7 +651,7 @@ class Settings(SettingsManager):
             
             return table
         
-        for key, setting in self.iter():
+        for key, setting in self.items():
             add_comment(settings, setting)
 
             settings.add(key, parse(setting))
