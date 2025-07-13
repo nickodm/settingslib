@@ -1,4 +1,14 @@
+# Python-generated stuff
 __pycache__
 .pytest_cache
+
+# Virtual enviroment
 env
+
+# VS Code config for the project
 .vscode
+
+# Generated with `pip install -e .`
+build
+dist
+*.egg-info
