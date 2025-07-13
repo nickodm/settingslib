@@ -9,12 +9,17 @@ __all__ = ["Settings"]
 
 _T = TypeVar("_T")
 
+def _is_nested_key(key: str) -> bool:
+    """Whether the `key` has "." characters in its body."""
+    return "." in key
+
 class _SettingsDict(TypedDict):
     """
     A dictionary structrured like a `Settings` object.
     """
     attributes: dict[str, Any]
     settings: dict[str, Any]
+
     
 class _SettingDict(TypedDict, Generic[_T]):
     """
@@ -22,6 +27,7 @@ class _SettingDict(TypedDict, Generic[_T]):
     """
     value: _T
     default: _T
+
 
 class Setting(Generic[_T]):
     def __init__(self, value: _T, default: _T | None = ..., comment: str = ""):
@@ -138,11 +144,32 @@ class SettingsManager(abc.ABC):
         Returns:
             Setting[_T]: An object representing the setting.
         """
-        self._settings[key] = Setting(
-            value=value,
-            default=default,
-            comment=comment
-        )
+        if isinstance(value, (dict, NestedSettings)):
+            self._settings[key] = NestedSettings(
+                value=value,
+                comment=comment
+            )
+        else:
+            self._settings[key] = Setting(
+                value=value,
+                default=default,
+                comment=comment
+            )
+        
+        return self._settings[key]
+    
+    def nest(self, key: str, *, comment: str = "") -> 'NestedSettings':
+        """
+        Nests a settings object into another one, creating hierarchy.
+
+        Args:
+            key (str): The key to get the nested setting.
+            comment (str, optional): The comment to display above the nested setting section in TOML. Defaults to "".
+
+        Returns:
+            NestedSettings: The nested setting object.
+        """
+        self._settings[key] = NestedSettings(comment=comment)
         return self._settings[key]
 
     @overload
@@ -171,7 +198,9 @@ class SettingsManager(abc.ABC):
                 if isinstance(value, Setting):
                     self._settings[key] = value
                 elif self.has(key):
-                    self._settings[key].value = value
+                    self._settings[key].update(value)
+                elif isinstance(value, (dict, NestedSettings)):
+                    self._settings[key] = NestedSettings(value)
                 else:
                     self._settings[key] = Setting(value)
         else:
@@ -190,11 +219,28 @@ class SettingsManager(abc.ABC):
         Returns:
             Setting | _T: The found setting or the default value.
         """
-        return self._settings.get(key, default)
-
+        try:
+            # See SettingsManager.__getitem__() to understand the code.
+            return self[key]
+        except KeyError:
+            return default
+    
     def has(self, key: str) -> bool:
         """Check if setting `key` is in the settings."""
-        return key in self._settings.keys()
+        if not _is_nested_key(key):
+            return key in self._settings.keys()
+        
+        keys: list[str] = key.split(".")
+        
+        if not self.has(keys[0]):
+            return False
+        
+        nested = self[keys[0]]
+        
+        if not isinstance(nested, NestedSettings):
+            return False
+        
+        return nested.has(".".join(keys[1:]))
     
     def as_dict(self) -> dict[str, Any]:
         """
@@ -235,22 +281,47 @@ class SettingsManager(abc.ABC):
         return self.has(key)
     
     def __eq__(self, other: Self | dict) -> bool:
-        if isinstance(SettingsManager):
+        if isinstance(other, SettingsManager):
             return self._settings == other._settings
         else:
             return self._settings == other
     
     def __getitem__(self, key: str) -> Setting:
-        return self._settings[key]
+        if not _is_nested_key(key):
+            return self._settings[key]
+
+        keys: list[str] = key.split(".")
+        
+        # If the key doesn't exists or if the last key is empty
+        # like "key."
+        if not self.has(keys[0]) \
+           or (len(keys) > 2 and keys[-1] == ""):
+            raise KeyError(key)
+        
+        nested = self.get(keys[0])
+        
+        if not isinstance(nested, NestedSettings):
+            raise KeyError(key)
+        
+        return nested[".".join(keys[1:])]
         
     def __setitem__(self, key: str, value: Setting | Any) -> None:
-        self.update({key: value})
+        if _is_nested_key(key):
+            self[key].update(value)
+        else:
+            self.update({key: value})
                 
     def __dict__(self):
         return self.as_dict()
     
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}({self._settings!r})"
+    
+    def __enter__(self) -> Self:
+        return self
+    
+    def __exit__(self, exc_type: type, exc_val: BaseException, exc_tb) -> bool:
+        return False # To re-raise the exception
 
 
 class NestedSettings(SettingsManager, Setting[dict[str, Any]]):
@@ -294,12 +365,15 @@ class NestedSettings(SettingsManager, Setting[dict[str, Any]]):
     key = ""
     ```
     """
-    def __init__(self, *, comment = ""):
+    def __init__(self, value: dict[str, Any] = None, *, comment = ""):
         SettingsManager.__init__(self)
         
         # Setting.value and Setting.default are overwritten by this class.
 
         self.comment = comment
+
+        if value is not None:
+            self.update(value)
         
     @property
     def value(self) -> dict[str, Any]:
@@ -474,12 +548,10 @@ class Settings(SettingsManager):
         d: _SettingsDict = self.as_dict(include_defaults=include_defaults)
         return json.dumps(d, indent=indent)
     
-    def as_toml(self, *, include_comments: bool = True) -> toml.TOMLDocument:
+    # TODO: Debug
+    def as_toml(self) -> toml.TOMLDocument:
         """
         Generates a TOML object representing the settings.
-
-        Args:
-            include_comments (bool, optional): Whether to include the comments of the settings. Defaults to True.
 
         Returns:
             tomlkit.TOMLDocument: A `TOMLDocument` object from the library [`tomlkit`](https://github.com/sdispater/tomlkit).
@@ -495,26 +567,48 @@ class Settings(SettingsManager):
         
         settings = toml.table()
         
-        for key, setting in self.iter():
-            if setting.comment and include_comments:
-                settings.add(toml.comment(setting.comment))
+        def add_comment(toml_object, setting):
+            if setting.comment:
+                if isinstance(setting, NestedSettings):
+                    toml_object.add(toml.nl())
+                    toml_object.add(toml.comment(
+                        "*--- " + setting.comment + " ---*"
+                        ))
+                else:
+                    toml_object.add(toml.comment(setting.comment))
+        
+        def parse(s: NestedSettings | Setting):
+            if not isinstance(s, NestedSettings):
+                return s.value
             
-            settings.add(key, setting.value)
+            table = toml.table()
+            
+            for key, setting in s.iter():
+                if setting.comment:
+                    add_comment(table, setting)
 
-            # if setting.comment and include_comments:
-            #     settings.add(toml.nl())
+                if isinstance(setting, NestedSettings):                    
+                    table.add(key, parse(setting))
+                else:
+                    table.add(key, setting.value)
+            
+            return table
+        
+        for key, setting in self.iter():
+            add_comment(settings, setting)
+
+            settings.add(key, parse(setting))
 
         doc.append("settings", settings)
         
         return doc
     
-    def save_toml(self, path: str | Path, *, include_comments: bool = True) -> Self:
+    def save_toml(self, path: str | Path) -> Self:
         """
         Save the settings in a TOML file at `path`.
 
         Args:
             path (str | Path): The destiny path for the TOML file.
-            include_comments (bool, optional): Whether to include setting's comments. Defaults to True.
             
         Returns:
             Self: 
@@ -522,7 +616,7 @@ class Settings(SettingsManager):
         path = Path(path)
         
         with open(path, "w") as fp:
-            fp.write(self.as_toml(include_comments=include_comments).as_string())
+            fp.write(self.as_toml().as_string())
         
         return self
     
@@ -608,6 +702,9 @@ class Settings(SettingsManager):
         for key, value in settings.items():
             if self.has(key):
                 self[key].value = value
+
+            elif isinstance(value, dict):
+                self[key] = NestedSettings(value)
             else:
                 self[key] = Setting(value)
         return self
@@ -719,9 +816,6 @@ class Settings(SettingsManager):
         new._path = copy(self.path)
         
         return new
-        
-    def __enter__(self) -> Self:
-        return self
     
     def __exit__(self, exc_type: type, exc: BaseException, exc_tb) -> bool:
         self.save()
