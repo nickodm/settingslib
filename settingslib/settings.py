@@ -87,38 +87,42 @@ class SettingsManager(abc.ABC):
     
     def __init__(self):
         self._settings: dict[str, Setting] = {}
-    
-    @overload
-    def set(self, key: str, *, value: _T) -> Setting[_T]:
-        """Set the value of the setting `key`."""
-        ...
-        
-    @overload
-    def set(self, key: str, *, default: _T) -> Setting[_T]:
-        """Set the default value of the setting `key`."""
-        ...
-        
-    @overload
-    def set(self, key: str, *, value: _T, default: _T) -> Setting[_T]:
-        """Set the value and the default value of the setting `key`."""
-        ...
 
-    # TODO
-    def set(self, key: str, *, value: _T | None = ..., default: _T | None = ...) -> Setting[_T]:
+    def set(self,
+            key: str, *, 
+            value: _T | None = ..., 
+            default: _T | None = ...,
+            comment: _T | None = ...) -> Setting[_T]:
+        """
+        Set the properties of a setting.
+
+        Args:
+            key (str): The key to find the setting.
+            value (_T | None, optional): The new value for the setting. Defaults to ....
+            default (_T | None, optional): The new default value for the setting. Defaults to ....
+
+        Raises:
+            KeyError: When the setting doesn't exists.
+            TypeError: When both of value and default are not filled.
+
+        Returns:
+            Setting[_T]: The setting with the changed applied.
+        """
         if not self.has(key):
             raise KeyError(f"There is not a setting with the key '{key}'.")
         
-        if value is Ellipsis and default is Ellipsis:
+        if Ellipsis in (value, default, comment):
             raise TypeError(f"Either value or default must be filled.")
         
-        if value is Ellipsis:
-            self[key].default = default
-        elif default is Ellipsis:
+        if value is not Ellipsis:
             self[key].value = value
-        else:
-            self[key].value = value
+
+        if default is not Ellipsis:
             self[key].default = default
-        
+
+        if comment is not Ellipsis:
+            self[key].comment = comment
+            
         return self._settings[key]
 
     def new(self, key: str, value: _T, default: _T | None = ..., comment: str = "") -> Setting[_T]:
@@ -205,7 +209,7 @@ class SettingsManager(abc.ABC):
     @abc.abstractmethod
     def copy(self) -> Self:
         """Creates a shallow copy of self."""
-        ...
+        raise NotImplementedError(f"SettingsManager.copy() was not implemented in {self.__class__.__name__}.")
         
     def unwrap(self) -> dict[str, Setting]:
         """
@@ -381,7 +385,6 @@ class Settings(SettingsManager):
     def __init__(self,
                  *,
                  path: str | Path,
-                 default_values: dict[str, Any] = {},
                  version: str = ""
                  ):
         super().__init__()
@@ -640,7 +643,7 @@ class Settings(SettingsManager):
         if not isinstance(loaded, dict):
             raise TypeError(f"The loaded JSON document is not a valid config file.")
         
-        return self.as_dict(loaded)
+        return self.load_dict(loaded)
     
     @overload
     def load(self) -> Self: ...
