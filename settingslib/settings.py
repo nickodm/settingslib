@@ -117,7 +117,7 @@ class SettingsManager(abc.ABC):
         if not self.has(key):
             raise KeyError(f"There is not a setting with the key '{key}'.")
         
-        if Ellipsis in (value, default, comment):
+        if (value, default, comment).count(Ellipsis) == 3:
             raise TypeError(f"Either value or default must be filled.")
         
         if value is not Ellipsis:
@@ -129,7 +129,7 @@ class SettingsManager(abc.ABC):
         if comment is not Ellipsis:
             self[key].comment = comment
             
-        return self._settings[key]
+        return self[key]
 
     def new(self, key: str, value: _T, default: _T | None = ..., comment: str = "") -> Setting[_T]:
         """
