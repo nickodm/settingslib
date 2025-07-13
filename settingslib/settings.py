@@ -249,6 +249,111 @@ class SettingsManager(abc.ABC):
         return f"{self.__class__.__name__}({self._settings!r})"
 
 
+class NestedSettings(SettingsManager, Setting[dict[str, Any]]):
+    """
+    A class representing a nested setting.
+    
+    A nested setting is a settings manager and a setting at the same time.
+    
+    # Example
+    
+    In JSON:
+    ```
+    {
+        "attributes": {
+            "version": "1.0.0
+        },
+        "settings": {
+            "prefer_cli": true,
+
+            # This is a nested setting.
+            "api": {
+                "base_url": "https://www.api.cl",
+                "key": ""
+            }
+        }
+        ""
+    }
+    ```
+    
+    In a TOML:
+    ```
+    [attributes]
+    version = "1.0.0"
+    
+    [settings]
+    prefer_cli = true
+    
+    # This is a nested setting.
+    [settings.api]
+    base_url = "https://www.api.cl"
+    key = ""
+    ```
+    """
+    def __init__(self, *, comment = ""):
+        SettingsManager.__init__(self)
+        
+        # Setting.value and Setting.default are overwritten by this class.
+
+        self.comment = comment
+        
+    @property
+    def value(self) -> dict[str, Any]:
+        return super().as_dict()
+    
+    # TODO
+    @value.setter
+    def value(self, other: dict[str, Any]) -> None:
+        self.update(other)
+        
+    @property
+    def default(self) -> dict[str, Any]:
+        buffer: dict[str, Any] = {}
+
+        for key, setting in self._settings.items():
+            buffer[key] = setting.default
+        
+        return buffer
+    
+    @default.setter
+    def default(self, other: dict[str, Any]) -> None:
+        if other == {}:
+            return self
+        
+        for key, default in other.items():
+            if isinstance(default, Setting):
+                self._settings[key] = default
+            elif self.has(key):
+                self._settings[key].default = default
+            else:
+                self._settings[key] = Setting(
+                    value=default,
+                    default=default
+                )
+    
+    def is_nested(self) -> bool:
+        return True
+    
+    def copy(self) -> Self:
+        new = NestedSettings.__new__(NestedSettings)
+        
+        new._settings = self._settings.copy()
+        new.comment = self.comment
+        
+        return new
+    
+    def is_default(self) -> bool:
+        # I override Setting.is_default() because it will get all the values
+        # and defaults first and then check if they are default.
+        # With this, the function will return False as soon as it finds a setting
+        # that is not default.
+        for setting in self._settings.values():
+            if not setting.is_default():
+                return False
+        
+        return True
+
+
 class Settings(SettingsManager):
     """
     A class representing the software's settings, similar to a dict.
