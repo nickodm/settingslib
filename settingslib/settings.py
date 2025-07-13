@@ -144,6 +144,17 @@ class SettingsManager(abc.ABC):
         Returns:
             Setting[_T]: An object representing the setting.
         """
+        if _is_nested_key(key):
+            keys = key.split(".")
+            nested: NestedSettings = self[keys[0]]
+            
+            return nested.new(
+                key=".".join(keys[1:]),
+                value=value,
+                default=default,
+                comment=comment
+            )
+        
         if isinstance(value, (dict, NestedSettings)):
             self._settings[key] = NestedSettings(
                 value=value,
@@ -190,21 +201,26 @@ class SettingsManager(abc.ABC):
             Self: 
         """
         
-        if isinstance(other, dict):
-            if other == {}:
-                return self
-            
-            for key, value in other.items():
-                if isinstance(value, Setting):
-                    self._settings[key] = value
-                elif self.has(key):
-                    self._settings[key].update(value)
-                elif isinstance(value, (dict, NestedSettings)):
-                    self._settings[key] = NestedSettings(value)
-                else:
-                    self._settings[key] = Setting(value)
-        else:
+        if isinstance(other, SettingsManager):
             self._settings.update(other._settings)
+            return self
+        
+        if other == {}:
+            return self
+        
+        for key, value in other.items():
+            if isinstance(value, Setting):
+                self._settings[key] = value
+                continue
+            
+            if self.has(key):
+                self._settings[key].update(value)
+                continue
+                
+            if isinstance(value, (dict, NestedSettings)):
+                self._settings[key] = NestedSettings(value)
+            else:
+                self._settings[key] = Setting(value)
         
         return self
     
