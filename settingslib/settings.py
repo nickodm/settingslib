@@ -36,6 +36,24 @@ class Setting(Generic[_T]):
     def is_default(self) -> bool:
         """Whether the value of the setting is equal to the default value."""
         return self.value == self.default
+    
+    def is_nested(self) -> bool:
+        """Whether the setting are nested settings."""
+        return False
+    
+    def update(self, other: _T) -> Self:
+        """
+        Changes the value of the setting to `other`.
+        Alias for `Setting.value = other`.
+        
+        Args:
+            other (Any): The new value of the setting.
+
+        Returns:
+            Self: 
+        """
+        self.value = other
+        return self
 
     def reset(self) -> Self:
         """Set the value to the default."""
@@ -53,7 +71,7 @@ class Setting(Generic[_T]):
         return self.value == other.value and self.default == other.default
     
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(value={self.value}, default={self.default})"
+        return f"{self.__class__.__name__}(value={self.value!r}, default={self.default!r})"
     
     def __dict__(self):
         return self.as_dict()
@@ -123,6 +141,40 @@ class SettingsManager(abc.ABC):
         )
         return self._settings[key]
 
+    @overload
+    def update(self, other: Self) -> Self:
+        ...
+    @overload
+    def update(self, other: dict[str, Setting | Any]) -> Self:
+        ...
+    
+    def update(self, other: dict[str, Setting | Any] | Self) -> Self:
+        """
+        Update the settings from the given object.
+
+        Args:
+            d (dict[str, Setting | Any] | SettingsManager): 
+
+        Returns:
+            Self: 
+        """
+        
+        if isinstance(other, dict):
+            if other == {}:
+                return self
+            
+            for key, value in other.items():
+                if isinstance(value, Setting):
+                    self._settings[key] = value
+                elif self.has(key):
+                    self._settings[key].value = value
+                else:
+                    self._settings[key] = Setting(value)
+        else:
+            self._settings.update(other._settings)
+        
+        return self
+    
     def get(self, key: str, default: _T | None = None) -> Setting | _T:
         """
         Gets the `Setting` with the key `key`.
@@ -168,12 +220,15 @@ class SettingsManager(abc.ABC):
     def iter(self) -> Iterator[tuple[str, Setting]]:
         return self._settings.items()
     
-    def reset_settings(self) -> Self:
+    def reset(self) -> Self:
         """Sets all the settings to their default value."""
         for setting in self._settings.values():
             setting.reset()
             
         return self
+    
+    def __in__(self, key: str) -> bool:
+        return self.has(key)
     
     def __eq__(self, other: Self | dict) -> bool:
         if isinstance(SettingsManager):
@@ -185,20 +240,14 @@ class SettingsManager(abc.ABC):
         return self._settings[key]
         
     def __setitem__(self, key: str, value: Setting | Any) -> None:
-        if isinstance(value, Setting):
-            self._settings[key] = value
-        else:
-            if self.has(key):
-                self._settings[key].value = value
-            else:
-                self._settings[key] = Setting(value)
+        self.update({key: value})
                 
     def __dict__(self):
         return self.as_dict()
     
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}({self._settings})"
-    
+        return f"{self.__class__.__name__}({self._settings!r})"
+
 
 class Settings(SettingsManager):
     """
