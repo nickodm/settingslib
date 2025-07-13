@@ -2,6 +2,7 @@ from typing import Self, Any, TypeVar, overload, Iterator, Generic, TypedDict
 from pathlib import Path
 from copy import copy
 import json
+import abc
 import tomlkit as toml
 
 __all__ = ["Settings"]
@@ -59,9 +60,147 @@ class Setting(Generic[_T]):
     
     def __bool__(self) -> bool:
         return bool(self.value)
+
+
+class SettingsManager(abc.ABC):
+    """
+    Abstract class for objects that wraps a dict with `Setting` objects.
+    """
+    
+    def __init__(self):
+        self._settings: dict[str, Setting] = {}
+    
+    @overload
+    def set(self, key: str, *, value: _T) -> Setting[_T]:
+        """Set the value of the setting `key`."""
+        ...
+        
+    @overload
+    def set(self, key: str, *, default: _T) -> Setting[_T]:
+        """Set the default value of the setting `key`."""
+        ...
+        
+    @overload
+    def set(self, key: str, *, value: _T, default: _T) -> Setting[_T]:
+        """Set the value and the default value of the setting `key`."""
+        ...
+
+    # TODO
+    def set(self, key: str, *, value: _T | None = ..., default: _T | None = ...) -> Setting[_T]:
+        if not self.has(key):
+            raise KeyError(f"There is not a setting with the key '{key}'.")
+        
+        if value is Ellipsis and default is Ellipsis:
+            raise TypeError(f"Either value or default must be filled.")
+        
+        if value is Ellipsis:
+            self[key].default = default
+        elif default is Ellipsis:
+            self[key].value = value
+        else:
+            self[key].value = value
+            self[key].default = default
+        
+        return self._settings[key]
+
+    def new(self, key: str, value: _T, default: _T | None = ..., comment: str = "") -> Setting[_T]:
+        """
+        Creates a new setting or overrides the existing one.
+
+        Args:
+            key (str): The name of the setting to create or override.
+            value (Any): The value for the new setting.
+            default (Any, optional): The default value for the new setting.. Defaults to ....
+            comment (str, optional): The comment to write in the TOML document adove the setting. Defaults to "".
+
+        Returns:
+            Setting[_T]: An object representing the setting.
+        """
+        self._settings[key] = Setting(
+            value=value,
+            default=default,
+            comment=comment
+        )
+        return self._settings[key]
+
+    def get(self, key: str, default: _T | None = None) -> Setting | _T:
+        """
+        Gets the `Setting` with the key `key`.
+
+        Args:
+            key (str): The key to get the setting.
+            default (_T, optional): The value to return if the key is not found. Defaults to None.
+
+        Returns:
+            Setting | _T: The found setting or the default value.
+        """
+        return self._settings.get(key, default)
+
+    def has(self, key: str) -> bool:
+        """Check if setting `key` is in the settings."""
+        return key in self._settings.keys()
+    
+    def as_dict(self) -> dict[str, Any]:
+        """
+        Generates a dictionary with the keys and the values of the settings. Does not includes the
+        default values or the comments.
+
+        Returns:
+            dict[str, Any]: The dictionary with the keys and values of the settings.
+        """
+        return {k: s.value for k, s in self._settings.items()}
+
+    @abc.abstractmethod
+    def copy(self) -> Self:
+        """Creates a shallow copy of self."""
+        ...
+        
+    def unwrap(self) -> dict[str, Setting]:
+        """
+        Returns the dict of settings.
+
+        Returns:
+            dict[str, Setting]: The dict of settings. **It is not a copy**, so
+                                be careful at doing changes.
+        """
+        return self._settings
+        
+    def iter(self) -> Iterator[tuple[str, Setting]]:
+        return self._settings.items()
+    
+    def reset_settings(self) -> Self:
+        """Sets all the settings to their default value."""
+        for setting in self._settings.values():
+            setting.reset()
+            
+        return self
+    
+    def __eq__(self, other: Self | dict) -> bool:
+        if isinstance(SettingsManager):
+            return self._settings == other._settings
+        else:
+            return self._settings == other
+    
+    def __getitem__(self, key: str) -> Setting:
+        return self._settings[key]
+        
+    def __setitem__(self, key: str, value: Setting | Any) -> None:
+        if isinstance(value, Setting):
+            self._settings[key] = value
+        else:
+            if self.has(key):
+                self._settings[key].value = value
+            else:
+                self._settings[key] = Setting(value)
+                
+    def __dict__(self):
+        return self.as_dict()
+    
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self._settings})"
     
 
-class Settings:
+class Settings(SettingsManager):
     """
     A class representing the software's settings, similar to a dict.
     
@@ -91,7 +230,8 @@ class Settings:
                  default_values: dict[str, Any] = {},
                  version: str = ""
                  ):
-        self._settings: dict[str, Setting] = {k: Setting(v) for k, v in default_values.items()}
+        super().__init__()
+        # self._settings: dict[str, Setting] = {k: Setting(v) for k, v in default_values.items()}
         self._attributes: dict[str, Any] = {
             "version": version
         }
@@ -136,79 +276,6 @@ class Settings:
     def is_toml(self) -> bool:
         """Wheter the settings file is `.toml`."""
         return self.file_type == ".toml"
-    
-    def get(self, key: str, default: _T | None = None) -> Setting | _T:
-        """
-        Gets the `Setting` with the key `key`.
-
-        Args:
-            key (str): The key to get the setting.
-            default (_T, optional): The value to return if the key is not found. Defaults to None.
-
-        Returns:
-            Setting | _T: The found setting or the default value.
-        """
-        return self._settings.get(key, default)
-    
-    @overload
-    def set(self, key: str, *, value: _T) -> Setting[_T]:
-        """Set the value of the setting `key`."""
-        ...
-        
-    @overload
-    def set(self, key: str, *, default: _T) -> Setting[_T]:
-        """Set the default value of the setting `key`."""
-        ...
-        
-    @overload
-    def set(self, key: str, *, value: _T, default: _T) -> Setting[_T]:
-        """Set the value and the default value of the setting `key`."""
-        ...
-
-    # TODO
-    def set(self, key: str, *, value: _T | None = ..., default: _T | None = ...) -> Setting[_T]:
-        if not self.has(key):
-            raise KeyError(f"There is not a setting with the key '{key}'.")
-        
-        if value is Ellipsis and default is Ellipsis:
-            raise TypeError(f"Either value or default must be filled.")
-        
-        if value is Ellipsis:
-            self[key].default = default
-        elif default is Ellipsis:
-            self[key].value = value
-        else:
-            self[key].value = value
-            self[key].default = default
-        
-        return self._settings[key]
-    
-    def new(self, key: str, value: _T, default: _T | None = ..., comment: str = "") -> Setting[_T]:
-        """
-        Creates a new setting or overrides the existing one.
-
-        Args:
-            key (str): The name of the setting to create or override.
-            value (Any): The value for the new setting.
-            default (Any, optional): The default value for the new setting.. Defaults to ....
-            comment (str, optional): The comment to write in the TOML document adove the setting. Defaults to "".
-
-        Returns:
-            Setting[_T]: An object representing the setting.
-        """
-        self._settings[key] = Setting(value, default, comment)
-        return self._settings[key]
-        
-    def has(self, key: str) -> bool:
-        """Check if setting `key` is in the settings."""
-        return key in self._settings.keys()
-        
-    def reset_settings(self) -> Self:
-        """Sets all the settings to their default value."""
-        for setting in self._settings.values():
-            setting.reset()
-            
-        return self
         
     def as_dict(self, *, include_defaults: bool = False) -> _SettingsDict:
         """
@@ -486,9 +553,6 @@ class Settings:
         self.__init__(path=path)
         return self.load()
     
-    def iter(self) -> Iterator[tuple[str, Setting]]:
-        return self._settings.items()
-    
     def copy(self) -> Self:
         """Returns a copy of the settings."""
         new = self.__new__(type(self))
@@ -498,24 +562,6 @@ class Settings:
         new._path = copy(self.path)
         
         return new
-    
-    def __getitem__(self, key: str) -> Setting:
-        return self._settings[key]
-    
-    def __setitem__(self, key: str, value: Setting | Any) -> None:
-        if type(value) is Setting:
-            self._settings[key] = value
-        else:
-            if self.has(key):
-                self._settings[key].value = value
-            else:
-                self._settings[key] = Setting(value)
-                
-    def __eq__(self, other: Self | dict) -> bool:
-        if type(other) is Settings:
-            return self._settings == other._settings
-        else:
-            return self._settings == other
         
     def __enter__(self) -> Self:
         return self
@@ -523,9 +569,6 @@ class Settings:
     def __exit__(self, exc_type: type, exc: BaseException, exc_tb) -> bool:
         self.save()
         return False # To re-raise the exception
-    
-    def __dict__(self):
-        return self.as_dict()
     
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(attributes={self._attributes}, settings={self._settings})"
