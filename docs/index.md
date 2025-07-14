@@ -7,7 +7,12 @@ Although the library exports only one class (`Settings`), a lot of its methods r
 Furthermore, `Settings` and `NestedSettings` inherit the majority of their methods from `SettingsManager`.
 
 # Contents
-* 📥 [Installation](./installation.md)
-* 🚀 [Quick start](./quickstart.md)
-* Documentation of each class
-  * ⚙️ [Settings](./Settings.md)
+* 📥 [Installation](./guides/installation.md)
+* 🚀 [Quick start](./guides/quickstart.md)
+* [API reference](./api)
+  * ⚙️ [Settings](./api/Settings.md)
+  * ⚙️ [SettingsManager](./api/SettingsManager.md)
+  * ⚙️ [NestedSettings](./api/NestedSettings.md)
+  * ⚙️ [Setting](./api/Setting.md)
+* [Guides](./guides/)
+  * [Using Context Managers with Settings](./guides/context_manager.md)
