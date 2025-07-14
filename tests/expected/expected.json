@@ -1,0 +1,33 @@
+{   
+    "attributes": {
+        "version": "1.0.0",
+        "user": "nickodm"
+    },
+    "settings": {
+        "prefer_cli": true,
+        "gui": {
+            "theme": "system",
+            "minimized": false,
+            "type": "simplified"
+        },
+        "api": {
+            "enabled": true,
+            "connection": {
+                "base_url": "https://www.api.cl",
+                "custom_key": ""
+            }
+        },
+        "editor": {
+            "bg_color": "black",
+            "fg_color": "white",
+            "indent": 4,
+            "suggestions": true
+        },
+        "colors": {
+            "blue": "blue",
+            "green": "green",
+            "black": "black",
+            "red": "red"
+        }
+    }
+}

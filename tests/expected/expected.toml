@@ -1,0 +1,48 @@
+[attributes]
+version = "1.0.0"
+user = "nickodm"
+
+[settings]
+# Whether to prefer the command line interface instead of GUI
+prefer_cli = true
+
+# *--- GUI SETTINGS ---*
+
+[settings.gui]
+# The default theme for the graphic interface.
+theme = "system"
+# Whether the interface must init minimized.
+minimized = false
+# The type of the interface.
+type = "simplified"
+
+# *--- API SETTINGS ---*
+
+[settings.api]
+enabled = true
+
+[settings.api.connection]
+# The base URL for the API.
+base_url = "https://www.api.cl"
+# The custom user's API key.
+custom_key = ""
+
+# *--- EDITOR SETTINGS ---*
+
+[settings.editor]
+# Background color
+bg_color = "black"
+# Font color
+fg_color = "white"
+# Amount of spaces to use for indentation
+indent = 4
+# Whether to allow suggestions in the program
+suggestions = true
+
+# *--- COLOR CODES ---*
+
+[settings.colors]
+blue = "blue"
+green = "green"
+black = "black"
+red = "red"
