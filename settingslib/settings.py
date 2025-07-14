@@ -1,4 +1,4 @@
-from typing import Self, Any, TypeVar, overload, Iterator, Generic, TypedDict
+from typing import Self, Any, TypeVar, overload, Iterator, Generic, TypedDict, NoReturn
 from pathlib import Path
 from copy import copy
 import json
@@ -12,6 +12,26 @@ _T = TypeVar("_T")
 def _is_nested_key(key: str) -> bool:
     """Whether the `key` has "." characters in its body."""
     return "." in key
+
+def check_and_parse_path(path: str | Path) -> Path | NoReturn:
+    """
+    Checks if the path is a valid file.
+
+    Args:
+        path (str | Path): The path.
+
+    Raises:
+        IsADirectoryError: When the path is a directory, not a file.
+        
+    Returns:
+        Path: The parsed path, if is valid.
+    """
+    path = Path(path)
+    
+    if path.is_dir():
+        raise IsADirectoryError(f"The path '{path}' is a directory, not a TOML or JSON file.")    
+    
+    return path
 
 class _SettingsDict(TypedDict):
     """
@@ -539,7 +559,7 @@ class Settings(SettingsManager):
         self._attributes: dict[str, Any] = {
             "version": version
         }
-        self._path: Path = Path(path)
+        self._path: Path = check_and_parse_path(path)
     
     @property
     def path(self) -> Path:
@@ -548,7 +568,7 @@ class Settings(SettingsManager):
     
     @path.setter
     def path(self, new_path: Path) -> None:
-        self._path = new_path
+        self._path = check_and_parse_path(new_path)
     
     @property
     def file_type(self) -> str:
@@ -704,7 +724,7 @@ class Settings(SettingsManager):
         Returns:
             Self: 
         """
-        path = Path(path)
+        path = check_and_parse_path(path)
         
         with open(path, "w") as fp:
             fp.write(self.as_json(indent=indent))
@@ -732,8 +752,8 @@ class Settings(SettingsManager):
         """
         if path is Ellipsis:
             path = self._path
-        elif type(path) is str:
-            path = Path(path)
+        else:
+            path = check_and_parse_path(path)
         
         if not path.parent.exists() and not create_dirs:
             raise FileNotFoundError(f"The directory '{path.parent}' doesn't exists.")
@@ -741,7 +761,7 @@ class Settings(SettingsManager):
         if not path.parent.exists() and create_dirs:
             path.parent.mkdir(parents=True)
         
-        match self.file_type:
+        match path.suffix:
             case ".toml":
                 self.save_toml(path)
 
@@ -836,8 +856,8 @@ class Settings(SettingsManager):
         """
         if path is Ellipsis:
             path = self._path
-        elif type(path) is str:
-            path = Path(path)
+        else:
+            path = check_and_parse_path(path)
         
         if not path.exists():
             raise FileNotFoundError(f"'{path}' doesn't exists.")
@@ -860,6 +880,8 @@ class Settings(SettingsManager):
         Tries to load the settings from the config file or `path`.\n
         Doesn't raises an exception when the file doesn't exists.
         """
+        path = check_and_parse_path(path)
+        
         if not path.exists():
             return self
         
