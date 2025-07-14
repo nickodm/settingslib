@@ -4,6 +4,8 @@ SettingsLib is a Python library to manage settings quickly.
 
 It supports reading and writting in TOML and JSON files.
 
+Read the documentation [here](./docs/index.md)!
+
 # Usage
 The library works exporting the class `Settings`.
 
