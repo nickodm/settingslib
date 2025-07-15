@@ -5,6 +5,7 @@ __pycache__
 # Virtual enviroment
 env
 venv
+.venv
 
 # VS Code config for the project
 .vscode
