@@ -404,39 +404,12 @@ class NestedSettings(SettingsManager, Setting[dict[str, Any]]):
     
     A nested setting is a settings manager and a setting at the same time.
     
-    # Example
+    **You shouldn't create instances of this class directly. Use 
+    the `nest()` method instead.** Read more in the library's
+    documentation.
     
-    In JSON:
-    ```
-    {
-        "attributes": {
-            "version": "1.0.0
-        },
-        "settings": {
-            "prefer_cli": true,
-
-            # This is a nested setting.
-            "api": {
-                "base_url": "https://www.api.cl",
-                "key": ""
-            }
-        }
-        ""
-    }
-    ```
-    
-    In a TOML:
-    ```
-    [attributes]
-    version = "1.0.0"
-    
-    [settings]
-    prefer_cli = true
-    
-    # This is a nested setting.
-    [settings.api]
-    base_url = "https://www.api.cl"
-    key = ""
+    This class is exported only for typing annotations and `isinstance()`
+    purposes.
     ```
     """
     def __init__(self, value: dict[str, Any] = None, *, comment = ""):
