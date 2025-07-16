@@ -2,6 +2,7 @@ from settingslib.settings import Settings
 from pathlib import Path
 import tomlkit as toml
 import json
+import pytest
 
 def _read_toml(p: Path) -> str:
     with open(p, "r") as fp:
@@ -22,25 +23,31 @@ def get_test_settings(tmp_path: Path) -> Settings:
     
     s.attributes["user"] = "nickodm"
     
-    s.new("prefer_cli", True, comment="Whether to prefer the command line interface instead of GUI")
+    s.new("prefer_cli", True, 
+          comment="Whether to prefer the command line interface instead of GUI")
     
     with s.nest("gui", comment="GUI SETTINGS") as gui_s:
-        gui_s.new("theme", "system", comment="The default theme for the graphic interface.")
-        gui_s.new("minimized", False, comment="Whether the interface must init minimized.")
+        gui_s.new("theme", "system", 
+                  comment="The default theme for the graphic interface.")
+        gui_s.new("minimized", False, 
+                  comment="Whether the interface must init minimized.")
         gui_s.new("type", "simplified", comment="The type of the interface.")
     
     with s.nest("api", comment="API SETTINGS") as api_s:
         api_s.new("enabled", True) # No comment
         
         with api_s.nest("connection") as c: # No comment
-            c.new("base_url", "https://www.api.cl", comment="The base URL for the API.")
+            c.new("base_url", "https://www.api.cl", 
+                  comment="The base URL for the API.")
             c.new("custom_key", "", comment="The custom user's API key.")
     
     with s.nest("editor", comment="EDITOR SETTINGS") as ed_s:
         ed_s.new("bg_color", "black", comment="Background color")
         ed_s.new("fg_color", "white", comment="Font color")
-        ed_s.new("indent", 4, comment="Amount of spaces to use for indentation")
-        ed_s.new("suggestions", True, comment="Whether to allow suggestions in the program")
+        ed_s.new("indent", 4, 
+                 comment="Amount of spaces to use for indentation")
+        ed_s.new("suggestions", True, 
+                 comment="Whether to allow suggestions in the program")
 
     with s.nest("colors", comment="COLOR CODES") as colors:
         colors.new("blue", "blue")
@@ -53,14 +60,20 @@ def get_test_settings(tmp_path: Path) -> Settings:
 def test(tmp_path: Path):
     s: Settings = get_test_settings(tmp_path)
     
+    # Check if the path-parsing method doesn't allow directory paths.
+    with pytest.raises(IsADirectoryError):
+        s._cap_path(tmp_path)
+    
     assert s.as_toml().unwrap() == EXPECTED_TOML
     assert s.as_json() == EXPECTED_JSON
     
     s.set("api.connection.custom_key", value="key")
     
     assert s.get("api.connection.custom_key").value == "key"
-    assert s.get("api.connection.custom_key").value == s["api.connection.custom_key"].value
-    assert s.get("api.connection.custom_key").value == s["api.connection.custom_key"].value
+    assert s.get("api.connection.custom_key").value \
+           == s["api.connection.custom_key"].value
+    assert s.get("api.connection.custom_key").value \
+           == s["api.connection.custom_key"].value
 
     s["api.connection.custom_key"].reset()
     
