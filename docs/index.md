@@ -15,4 +15,5 @@ Furthermore, `Settings` and `NestedSettings` inherit the majority of their metho
   * ⚙️ [SettingsManager](./api/SettingsManager.md)
   * ⚙️ [NestedSettings](./api/NestedSettings.md)
 * [Guides](./guides/)
-  * [Using Context Managers with Settings](./guides/context_manager.md)
+  * [Using context managers with Settings](./guides/context_manager.md)
+  * [Nesting settings](./guides/nestingSettings.md)
