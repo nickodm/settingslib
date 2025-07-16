@@ -68,7 +68,7 @@ It supports [nested keys][nestingSettings].
 def nest(self, key: str, *, comment: str = "") -> NestedSettings
 ```
 
-Nests settings into another settings, creating a hierarchy of them.
+Nests settings into another settings, creating a hierarchy of them. Returns the [`NestedSettings`](./NestedSettings.md) object.
 
 #### Example of nested settings
 
