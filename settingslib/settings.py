@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from typing import (TYPE_CHECKING, Any, TypeVar, overload, Iterator, Generic, \
-                    TypedDict, NoReturn, Optional)
+                    NoReturn, Optional)
+from typing_extensions import TypedDict
 from pathlib import Path
 from copy import copy
 import json
