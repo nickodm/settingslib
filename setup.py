@@ -7,7 +7,8 @@ setup(
     author="Nicolás Miranda Colivoro",
     author_email="nmcolivoro@outlook.cl",
     install_requires=[
-        "tomlkit==0.13.3"
+        "tomlkit==0.13.3",
+        "typing_extensions==4.15.0"
     ],
     packages=find_packages()
 )
