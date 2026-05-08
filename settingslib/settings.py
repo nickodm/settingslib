@@ -1,10 +1,19 @@
-from typing import (Self, Any, TypeVar, overload, Iterator, Generic, \
-                    TypedDict, NoReturn, Optional)
+from __future__ import annotations
+
+from typing import (TYPE_CHECKING, Any, TypeVar, overload, Iterator, Generic, \
+                    NoReturn, Optional)
+from typing_extensions import TypedDict
 from pathlib import Path
 from copy import copy
 import json
 import abc
 import tomlkit as toml
+
+if TYPE_CHECKING:
+    try:
+        from typing import Self
+    except ImportError:
+        from typing_extensions import Self
 
 __all__ = ["Settings"]
 
